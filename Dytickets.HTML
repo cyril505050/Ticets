@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DynTickets — Хоккейные билеты</title>
+    <!-- Bootstrap 5 + иконки -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --dynamo-blue: #00529b;
+            --dynamo-white: #ffffff;
+            --accent: #e03a3e;
+        }
+
+        body {
+            background: #f5f7fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, var(--dynamo-blue), #003d73);
+        }
+
+        .navbar-brand {
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: var(--dynamo-white) !important;
+        }
+
+        .nav-link {
+            color: rgba(255, 255, 255, 0.85) !important;
+            margin: 0 8px;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .nav-link.active, .nav-link:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: white !important;
+        }
+
+        .card-event {
+            border: none;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+            background: white;
+            margin-bottom: 20px;
+        }
+
+        .card-event:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 30px rgba(0, 82, 155, 0.12);
+        }
+
+        .event-header {
+            background: #00529b10;
+            border-bottom: 1px solid #e9ecef;
+            padding: 1rem 1.25rem;
+        }
+
+        .teams {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #003d73;
+        }
+
+        .event-meta {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+
+        .btn-book {
+            background: var(--accent);
+            border: none;
+            font-weight: 600;
+            padding: 0.5rem 1.5rem;
+            border-radius: 10px;
+        }
+
+        .btn-book:hover {
+            background: #c53030;
+        }
+
+        .btn-outline-dynamo {
+            border: 1px solid var(--dynamo-blue);
+            color: var(--dynamo-blue);
+            border-radius: 10px;
+        }
+
+        .btn-outline-dynamo:hover {
+            background: var(--dynamo-blue);
+            color: white;
+        }
+
+        .admin-card {
+            border-radius: 16px;
+            border: none;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+        }
+
+        .ticket-available {
+            font-weight: bold;
+            color: #198754;
+        }
+
+        .ticket-soldout {
+            font-weight: bold;
+            color: #dc3545;
+        }
+
+        .login-container {
+            max-width: 400px;
+            margin: 2rem auto;
+        }
+
+        .booking-row {
+            background: white;
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.5rem;
+            border-left: 5px solid var(--dynamo-blue);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg sticky-top mb-4">
+        <div class="container">
+            <a class="navbar-brand" href="#"><i class="bi bi-shield-fill"></i> DynTickets</a>
+            <div class="navbar-nav">
+                <a class="nav-link active" href="#" data-section="user"><i class="bi bi-calendar-event"></i> Афиша</a>
+                <a class="nav-link" href="#" data-section="admin"><i class="bi bi-shield-lock"></i> Админ</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container" id="app-container">
+        <!-- Секция Афиша -->
+        <section id="user-section">
+            <h2 class="mb-4"><i class="bi bi-hockey-puck"></i> Ближайшие матчи «Динамо Москва»</h2>
+            <div id="events-grid" class="row"></div>
+        </section>
+
+        <!-- Секция Админ-панели -->
+        <section id="admin-section" style="display: none;">
+            <div id="login-block" class="login-container">
+                <div class="card admin-card p-4">
+                    <h3 class="text-center mb-3"><i class="bi bi-lock-fill"></i> Вход для администратора</h3>
+                    <div class="mb-3">
+                        <label class="form-label">Логин</label>
+                        <input type="text" id="admin-login" class="form-control" placeholder="admin">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Пароль</label>
+                        <input type="password" id="admin-password" class="form-control" placeholder="••••••">
+                    </div>
+                    <button class="btn btn-dynamo w-100" id="btn-login" style="background: var(--dynamo-blue); color: white; border-radius: 10px;">
+                        Войти
+                    </button>
+                    <div id="login-error" class="text-danger mt-2 small"></div>
+                </div>
+            </div>
+
+            <div id="admin-content" style="display: none;">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h3><i class="bi bi-speedometer2"></i> Панель управления</h3>
+                    <button class="btn btn-outline-danger btn-sm" id="btn-logout"><i class="bi bi-box-arrow-right"></i> Выйти</button>
+                </div>
+
+                <!-- Вкладки админки -->
+                <ul class="nav nav-pills mb-4" id="admin-tabs">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-bs-toggle="pill" href="#tab-bookings">📋 Бронирования</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="pill" href="#tab-add-event">➕ Добавить матч</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="pill" href="#tab-manage-events">📅 Все матчи</a>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="tab-bookings">
+                        <h5>Список бронирований</h5>
+                        <div id="bookings-list"></div>
+                    </div>
+                    <div class="tab-pane fade" id="tab-add-event">
+                        <div class="card admin-card p-4">
+                            <h5>Новое мероприятие</h5>
+                            <form id="form-add-event">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Хозяева</label>
+                                        <input type="text" class="form-control" value="Динамо Москва" id="home-team" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Гости</label>
+                                        <input type="text" class="form-control" id="away-team" placeholder="СКА" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Дата</label>
+                                        <input type="date" class="form-control" id="event-date" required>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Время</label>
+                                        <input type="time" class="form-control" id="event-time" value="19:00" required>
+                                    </div>
+                                    <div class="col-md-5">
+                                        <label class="form-label">Арена</label>
+                                        <input type="text" class="form-control" id="event-arena" value="ВТБ Арена" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Цена билета (₽)</label>
+                                        <input type="number" class="form-control" id="event-price" value="1500" min="100" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Всего билетов</label>
+                                        <input type="number" class="form-control" id="event-total" value="100" min="10" required>
+                                    </div>
+                                    <div class="col-12 mt-3">
+                                        <button type="submit" class="btn btn-book text-white px-4">Создать матч</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="tab-manage-events">
+                        <h5>Управление матчами</h5>
+                        <div id="manage-events-list"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // --- Глобальные переменные и данные ---
+        const STORAGE_KEY = 'dyn_tickets_data';
+        const ADMIN_CREDENTIALS = { login: 'admin', password: 'dynhockey2024' };
+
+        // Инициализация данных
+        function getInitialData() {
+            const today = new Date();
+            const days = [2, 5, 8, 12, 18, 25];
+            const opponents = ['СКА', 'ЦСКА', 'Ак Барс', 'Металлург Мг', 'Авангард', 'Локомотив'];
+            const events = days.map((offset, i) => {
+                const d = new Date(today);
+                d.setDate(d.getDate() + offset);
+                const dateStr = d.toISOString().split('T')[0];
+                return {
+                    id: crypto.randomUUID ? crypto.randomUUID() : `evt-${Date.now()}-${i}`,
+                    home_team: 'Динамо Москва',
+                    away_team: opponents[i % opponents.length],
+                    date: dateStr,
+                    time: '19:00',
+                    arena: 'ВТБ Арена',
+                    price: 1500 + i * 200,
+                    total_tickets: 100,
+                    booked_tickets: Math.floor(Math.random() * 20) // для демонстрации
+                };
+            });
+            return { events, bookings: [] };
+        }
+
+        function loadData() {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            if (stored) {
+                try {
+                    return JSON.parse(stored);
+                } catch (e) {}
+            }
+            const initial = getInitialData();
+            saveData(initial);
+            return initial;
+        }
+
+        function saveData(data) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        }
+
+        let appData = loadData();
+
+        // --- Вспомогательные функции ---
+        function formatDate(dateStr) {
+            const options = { day: 'numeric', month: 'long', year: 'numeric' };
+            return new Date(dateStr).toLocaleDateString('ru-RU', options);
+        }
+
+        // --- Рендеринг пользовательской афиши ---
+        function renderUserEvents(filterDate = null) {
+            const grid = document.getElementById('events-grid');
+            if (!grid) return;
+
+            let events = [...appData.events].sort((a, b) => a.date.localeCompare(b.date));
+            if (filterDate) {
+                events = events.filter(e => e.date >= filterDate);
+            }
+
+            if (events.length === 0) {
+                grid.innerHTML = '<div class="col-12 text-center py-5 text-muted">Нет матчей в расписании</div>';
+                return;
+            }
+
+            grid.innerHTML = events.map(event => {
+                const available = event.total_tickets - event.booked_tickets;
+                const soldOut = available <= 0;
+                return `
+                <div class="col-lg-6">
+                    <div class="card-event">
+                        <div class="event-header">
+                            <div class="teams">🏒 ${event.home_team} — ${event.away_team}</div>
+                            <div class="event-meta">
+                                <i class="bi bi-calendar3"></i> ${formatDate(event.date)} |
+                                <i class="bi bi-clock"></i> ${event.time} |
+                                <i class="bi bi-geo-alt"></i> ${event.arena}
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row align-items-center">
+                                <div class="col-md-6">
+                                    <span class="${soldOut ? 'ticket-soldout' : 'ticket-available'}">
+                                        ${soldOut ? '❌ Продано' : '✅ Доступно: ' + available}
+                                    </span>
+                                    <div class="mt-1"><strong>${event.price} ₽</strong> за билет</div>
+                                </div>
+                                <div class="col-md-6">
+                                    ${!soldOut ? `
+                                    <form class="booking-form" data-event-id="${event.id}">
+                                        <div class="input-group input-group-sm mb-2">
+                                            <span class="input-group-text">👤</span>
+                                            <input type="text" class="form-control" placeholder="Ваше имя" name="user_name" required>
+                                        </div>
+                                        <div class="input-group input-group-sm mb-2">
+                                            <span class="input-group-text">🎫</span>
+                                            <input type="number" class="form-control" name="quantity" value="1" min="1" max="${available}" required>
+                                        </div>
+                                        <button type="submit" class="btn btn-book text-white w-100">
+                                            Забронировать
+                                        </button>
+                                    </form>
+                                    ` : '<button class="btn btn-secondary w-100" disabled>Нет билетов</button>'}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+
+            // Обработчики бронирования
+            document.querySelectorAll('.booking-form').forEach(form => {
+                form.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const eventId = this.dataset.eventId;
+                    const userName = this.user_name.value.trim();
+                    const quantity = parseInt(this.quantity.value, 10);
+
+                    if (!userName) {
+                        alert('Введите имя');
+                        return;
+                    }
+
+                    const event = appData.events.find(ev => ev.id === eventId);
+                    if (!event) return;
+
+                    const available = event.total_tickets - event.booked_tickets;
+                    if (quantity > available) {
+                        alert('Недостаточно билетов!');
+                        return;
+                    }
+
+                    event.booked_tickets += quantity;
+                    const booking = {
+                        id: crypto.randomUUID ? crypto.randomUUID() : `book-${Date.now()}`,
+                        event_id: eventId,
+                        match: `${event.home_team} vs ${event.away_team}`,
+                        date: event.date,
+                        time: event.time,
+                        user_name: userName,
+                        quantity: quantity,
+                        total_price: quantity * event.price,
+                        timestamp: new Date().toLocaleString('ru-RU')
+                    };
+                    appData.bookings.push(booking);
+                    saveData(appData);
+                    renderUserEvents();
+                    alert(`✅ Забронировано ${quantity} билетов на ${booking.total_price} ₽`);
+                });
+            });
+        }
+
+        // --- Административные функции ---
+        function isAdminLoggedIn() {
+            return sessionStorage.getItem('admin_logged_in') === 'true';
+        }
+
+        function setAdminLoggedIn(val) {
+            if (val) sessionStorage.setItem('admin_logged_in', 'true');
+            else sessionStorage.removeItem('admin_logged_in');
+        }
+
+        function renderAdminUI() {
+            const loggedIn = isAdminLoggedIn();
+            document.getElementById('login-block').style.display = loggedIn ? 'none' : 'block';
+            document.getElementById('admin-content').style.display = loggedIn ? 'block' : 'none';
+            if (loggedIn) {
+                renderBookings();
+                renderManageEvents();
+            }
+        }
+
+        function renderBookings() {
+            const container = document.getElementById('bookings-list');
+            if (!container) return;
+            if (appData.bookings.length === 0) {
+                container.innerHTML = '<div class="text-muted">Пока нет бронирований</div>';
+                return;
+            }
+            container.innerHTML = appData.bookings.slice().reverse().map(b => `
+                <div class="booking-row">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>${b.match}</strong><br>
+                            <small>📅 ${formatDate(b.date)} | 🕒 ${b.time}</small><br>
+                            <small>👤 ${b.user_name} | 🎫 ×${b.quantity} | 💰 ${b.total_price} ₽</small>
+                        </div>
+                        <div class="text-muted small">${b.timestamp}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderManageEvents() {
+            const container = document.getElementById('manage-events-list');
+            if (!container) return;
+            if (appData.events.length === 0) {
+                container.innerHTML = '<div class="text-muted">Нет матчей</div>';
+                return;
+            }
+            container.innerHTML = appData.events.map(event => `
+                <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+                    <div>
+                        🏒 ${event.home_team} vs ${event.away_team} — ${formatDate(event.date)} ${event.time}<br>
+                        <small>🎟️ Продано: ${event.booked_tickets}/${event.total_tickets} | Цена: ${event.price} ₽</small>
+                    </div>
+                    <button class="btn btn-outline-danger btn-sm delete-event" data-event-id="${event.id}">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            `).join('');
+
+            document.querySelectorAll('.delete-event').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const eventId = btn.dataset.eventId;
+                    if (confirm('Удалить этот матч? Все связанные бронирования останутся в истории.')) {
+                        appData.events = appData.events.filter(e => e.id !== eventId);
+                        // Оставляем бронирования, но они останутся в истории
+                        saveData(appData);
+                        renderManageEvents();
+                        renderUserEvents(); // обновить афишу
+                    }
+                });
+            });
+        }
+
+        // --- Навигация и переключение секций ---
+        function setActiveSection(sectionName) {
+            document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+            document.querySelector(`[data-section="${sectionName}"]`).classList.add('active');
+            document.getElementById('user-section').style.display = sectionName === 'user' ? 'block' : 'none';
+            document.getElementById('admin-section').style.display = sectionName === 'admin' ? 'block' : 'none';
+            if (sectionName === 'user') renderUserEvents();
+            if (sectionName === 'admin') renderAdminUI();
+        }
+
+        // --- Инициализация обработчиков ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Навигация
+            document.querySelectorAll('[data-section]').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    setActiveSection(link.dataset.section);
+                });
+            });
+
+            // Логин
+            document.getElementById('btn-login').addEventListener('click', () => {
+                const login = document.getElementById('admin-login').value.trim();
+                const password = document.getElementById('admin-password').value.trim();
+                if (login === ADMIN_CREDENTIALS.login && password === ADMIN_CREDENTIALS.password) {
+                    setAdminLoggedIn(true);
+                    renderAdminUI();
+                } else {
+                    document.getElementById('login-error').textContent = 'Неверный логин или пароль';
+                }
+            });
+
+            // Выход
+            document.getElementById('btn-logout').addEventListener('click', () => {
+                setAdminLoggedIn(false);
+                renderAdminUI();
+            });
+
+            // Добавление мероприятия
+            document.getElementById('form-add-event').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const newEvent = {
+                    id: crypto.randomUUID ? crypto.randomUUID() : `evt-${Date.now()}`,
+                    home_team: document.getElementById('home-team').value.trim(),
+                    away_team: document.getElementById('away-team').value.trim(),
+                    date: document.getElementById('event-date').value,
+                    time: document.getElementById('event-time').value,
+                    arena: document.getElementById('event-arena').value.trim(),
+                    price: parseInt(document.getElementById('event-price').value, 10),
+                    total_tickets: parseInt(document.getElementById('event-total').value, 10),
+                    booked_tickets: 0
+                };
+                appData.events.push(newEvent);
+                saveData(appData);
+                document.getElementById('form-add-event').reset();
+                document.getElementById('home-team').value = 'Динамо Москва';
+                document.getElementById('event-time').value = '19:00';
+                document.getElementById('event-arena').value = 'ВТБ Арена';
+                renderManageEvents();
+                renderUserEvents();
+                alert('Матч добавлен!');
+            });
+
+            // Установка даты по умолчанию в форме добавления
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            document.getElementById('event-date').value = tomorrow.toISOString().split('T')[0];
+
+            // Запуск пользовательского режима по умолчанию
+            setActiveSection('user');
+        });
+    </script>
+</body>
+</html>
